@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+frontend/dist/
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env
+
+# Local databases and generated storage
+.postgres-data/
+*.sqlite
+*.sqlite3
+backend/uploads/
+
+# Logs and runtime output
+*.log
+.codex-run-logs/
+
+# Temporary/debug scripts
+backend/tmp_*.js
+backend/debug_*.js
+
+# OS/editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
