@@ -1,9 +1,13 @@
+require('dotenv').config();
+
 const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 
-require('dotenv').config();
-
 const JWT_SECRET = process.env.JWT_SECRET || 'docushield_jwt_secret_key_2026_x1';
+
+if (process.env.NODE_ENV === 'production' && !process.env.JWT_SECRET) {
+  console.warn('JWT_SECRET is not set. Set JWT_SECRET in production for secure token signing.');
+}
 
 /**
  * Middleware to authenticate requests via JWT

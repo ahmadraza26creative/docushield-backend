@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -6,11 +8,17 @@ const rateLimit = require('express-rate-limit');
 const db = require('./config/db');
 const errorHandler = require('./src/middleware/errorHandler');
 
-require('dotenv').config();
-
 const app = express();
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
+
+if (isProduction && !process.env.FRONTEND_URL) {
+  console.warn('FRONTEND_URL is not set. Production CORS will only allow configured DocuShield Vercel origins.');
+}
+
+// Railway sits behind one trusted reverse proxy. This lets Express and
+// express-rate-limit read the client IP from X-Forwarded-For safely.
+app.set('trust proxy', isProduction ? 1 : false);
 
 const localOrigins = [
   'http://localhost:3000',

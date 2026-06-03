@@ -7,6 +7,35 @@ const db = require('../config/db');
 const { JWT_SECRET } = require('../middleware/auth');
 const { logSecurityEvent } = require('../utils/auditLogger');
 
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
+const JWT_EXPIRES_IN_MS = parseJwtDurationToMs(JWT_EXPIRES_IN, 15 * 60 * 1000);
+
+function parseJwtDurationToMs(value, fallbackMs) {
+  if (!value) return fallbackMs;
+
+  if (/^\d+$/.test(String(value))) {
+    return Number(value) * 1000;
+  }
+
+  const match = String(value).trim().match(/^(\d+)\s*(ms|s|m|h|d)$/i);
+  if (!match) {
+    console.warn(`Invalid JWT_EXPIRES_IN value "${value}". Falling back to 15m.`);
+    return fallbackMs;
+  }
+
+  const amount = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  const multipliers = {
+    ms: 1,
+    s: 1000,
+    m: 60 * 1000,
+    h: 60 * 60 * 1000,
+    d: 24 * 60 * 60 * 1000
+  };
+
+  return amount * multipliers[unit];
+}
+
 /**
  * Robust Input Validation helper for registration & password change
  */
