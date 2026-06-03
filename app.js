@@ -11,6 +11,7 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
+
 const localOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
@@ -18,10 +19,18 @@ const localOrigins = [
   'http://127.0.0.1:3000',
   'http://127.0.0.1:5173'
 ];
+
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  'https://docushield-frontend.vercel.app',
+  'https://docushield-frontend-qkq1votu0-ahmad-raza-s-projects5.vercel.app',
   ...(!isProduction ? localOrigins : [])
 ].filter(Boolean);
+
+const isAllowedVercelPreview = (origin) => {
+  return /^https:\/\/docushield-frontend-[a-zA-Z0-9-]+\.vercel\.app$/.test(origin);
+};
+
 const connectSources = ["'self'", ...allowedOrigins];
 
 if (!isProduction) {
@@ -36,7 +45,10 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com'],
       imgSrc: ["'self'", 'data:', 'blob:'],
-      connectSrc: connectSources,
+      connectSrc: [
+        ...connectSources,
+        'https://docushield-backend-production-7bd0.up.railway.app'
+      ],
       frameSrc: ["'self'", 'blob:'],
       objectSrc: ["'self'", 'blob:']
     }
@@ -45,15 +57,27 @@ app.use(helmet({
 
 app.use(cors({
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (
+      !origin ||
+      allowedOrigins.includes(origin) ||
+      isAllowedVercelPreview(origin)
+    ) {
       return callback(null, true);
     }
-    return callback(new Error('CORS policy does not allow this origin.'));
+
+    return callback(new Error(`CORS policy does not allow this origin: ${origin}`));
   },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-device-fingerprint', 'x-share-password']
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'x-device-fingerprint',
+    'x-share-password'
+  ]
 }));
+
+app.options('*', cors());
 
 app.use(rateLimit({
   windowMs: 15 * 60 * 1000,
