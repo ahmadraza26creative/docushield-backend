@@ -9,17 +9,22 @@ const { logSecurityEvent } = require('../utils/auditLogger');
 
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
 const JWT_EXPIRES_IN_MS = parseJwtDurationToMs(JWT_EXPIRES_IN, 15 * 60 * 1000);
-const isProduction = process.env.NODE_ENV === 'production';
-const authCookieOptions = {
-  httpOnly: true,
-  secure: isProduction,
-  sameSite: isProduction ? 'none' : 'strict'
-};
-const clearAuthCookieOptions = {
-  httpOnly: true,
-  secure: isProduction,
-  sameSite: isProduction ? 'none' : 'strict'
-};
+
+function isCrossSiteHttpsRequest(req) {
+  const origin = req.get('origin') || '';
+  const forwardedProto = req.get('x-forwarded-proto') || '';
+  return origin.startsWith('https://') || forwardedProto.includes('https') || req.secure;
+}
+
+function getAuthCookieOptions(req, maxAge) {
+  const crossSiteHttps = isCrossSiteHttpsRequest(req);
+  return {
+    httpOnly: true,
+    secure: crossSiteHttps,
+    sameSite: crossSiteHttps ? 'none' : 'strict',
+    ...(maxAge ? { maxAge } : {})
+  };
+}
 
 function parseJwtDurationToMs(value, fallbackMs) {
   if (!value) return fallbackMs;
@@ -150,13 +155,11 @@ async function register(req, res) {
     );
 
     res.cookie('accessToken', accessToken, {
-      ...authCookieOptions,
-      maxAge: JWT_EXPIRES_IN_MS
+      ...getAuthCookieOptions(req, JWT_EXPIRES_IN_MS)
     });
 
     res.cookie('token', accessToken, {
-      ...authCookieOptions,
-      maxAge: JWT_EXPIRES_IN_MS
+      ...getAuthCookieOptions(req, JWT_EXPIRES_IN_MS)
     });
 
     await logSecurityEvent({
@@ -305,19 +308,16 @@ async function login(req, res) {
 
     // Set secure HTTP-only cookies
     res.cookie('accessToken', accessToken, {
-      ...authCookieOptions,
-      maxAge: JWT_EXPIRES_IN_MS
+      ...getAuthCookieOptions(req, JWT_EXPIRES_IN_MS)
     });
 
     res.cookie('refreshToken', sessionId, {
-      ...authCookieOptions,
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+      ...getAuthCookieOptions(req, 7 * 24 * 60 * 60 * 1000) // 7 days
     });
 
     // Retro-compatibility token cookie
     res.cookie('token', accessToken, {
-      ...authCookieOptions,
-      maxAge: JWT_EXPIRES_IN_MS
+      ...getAuthCookieOptions(req, JWT_EXPIRES_IN_MS)
     });
 
     await logSecurityEvent({
@@ -369,9 +369,9 @@ async function logout(req, res) {
       }
     }
 
-    res.clearCookie('accessToken', clearAuthCookieOptions);
-    res.clearCookie('refreshToken', clearAuthCookieOptions);
-    res.clearCookie('token', clearAuthCookieOptions);
+    res.clearCookie('accessToken', getAuthCookieOptions(req));
+    res.clearCookie('refreshToken', getAuthCookieOptions(req));
+    res.clearCookie('token', getAuthCookieOptions(req));
 
     res.json({ message: 'Logged out successfully.' });
   } catch (err) {
@@ -432,13 +432,11 @@ async function refresh(req, res) {
 
     // Set updated access token in cookies
     res.cookie('accessToken', newAccessToken, {
-      ...authCookieOptions,
-      maxAge: JWT_EXPIRES_IN_MS
+      ...getAuthCookieOptions(req, JWT_EXPIRES_IN_MS)
     });
 
     res.cookie('token', newAccessToken, {
-      ...authCookieOptions,
-      maxAge: JWT_EXPIRES_IN_MS
+      ...getAuthCookieOptions(req, JWT_EXPIRES_IN_MS)
     });
 
     res.json({
